@@ -1,0 +1,116 @@
+#include "config.h"
+#include "DHT.h"
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
+
+//#include <Adafruit_Sensor.h>
+//#include <DHT_U.h>
+#define DHT11PIN 16
+#define BOT_TOKEN "5317358464:AAHmOe_EByu0wOshaaOW-xQJg8tK4uhe7i0"
+// Use @myidbot (IDBot) to find out the chat ID of an individual or a group
+// Also note that you need to click "start" on a bot before it can
+// message you
+#define CHAT_ID "1875195767"
+WiFiClientSecure secured_client;
+UniversalTelegramBot bot(BOT_TOKEN, secured_client);
+const int AirValue = 4095; 
+const int WaterValue = 1150; 
+const int SensorPin = 39;
+const int ledPin = 17;
+int soilMoistureValue = 0;
+int soilmoisturepercent=0;
+DHT dht(DHT11PIN, DHT11);
+AdafruitIO_Feed *temperature = io.feed("temperature");
+AdafruitIO_Feed *humidity = io.feed("humidity");
+AdafruitIO_Feed *moist = io.feed("moist");
+
+ void setup() {
+  pinMode (ledPin, OUTPUT);
+  Serial.begin(115200);
+  
+   // connect to io.adafruit.com
+  Serial.print("Connecting to Adafruit IO");
+  io.connect();
+
+  // wait for a connection
+  while(io.status() < AIO_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+
+  // we are connected
+  Serial.println();
+  Serial.println(io.statusText());
+  float humi = 0.00;
+
+  secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+   bot.sendMessage(CHAT_ID, "Agri Automation System Started", "");
+
+ }
+  void loop() 
+{
+  digitalWrite (ledPin, LOW);
+    io.run();
+
+  delay(1000);
+soilMoistureValue = analogRead(SensorPin);  //put Sensor insert into soil
+Serial.println(soilMoistureValue);
+soilmoisturepercent = map(soilMoistureValue, AirValue, WaterValue, 0, 100);
+Serial.print(soilmoisturepercent);
+  Serial.println("%");
+  dht.begin();
+ // delay(2000);
+   float humi = dht.readHumidity();
+   //delay(2000);
+  float temp = dht.readTemperature();
+  //delay(2000);
+  Serial.print("Temperature: ");
+  Serial.print(temp);
+  Serial.print("ºC ");
+  Serial.print("Humidity: ");
+  Serial.println(humi);
+    temperature->save(temp);
+    humidity->save(humi);
+    moist->save(soilmoisturepercent);
+    delay(5000);
+  // temp = 100;
+   //humi = 50;
+   
+    String ttemp = String(temp);
+    String thumi = String(humi);
+        String sm = String(soilmoisturepercent);
+
+    String t = "Temperature : " + ttemp;
+    String h = "Humidity : " + thumi;
+     String M = "Soilmoisture :" + sm;
+
+     bot.sendMessage(CHAT_ID, t, "");
+     bot.sendMessage(CHAT_ID, h, "");
+     bot.sendMessage(CHAT_ID, M, "");
+     
+   
+  if (soilmoisturepercent<=50)
+    
+   {
+   Serial.print(soilmoisturepercent);
+   Serial.println("%");
+    Serial.println("motor turned on");
+     digitalWrite (ledPin, HIGH);
+     delay(6000);
+      bot.sendMessage(CHAT_ID, "motor turned On", "");
+    }
+
+    else
+    {
+    digitalWrite (ledPin, LOW);
+   
+     Serial.println("motor turned off");
+    }
+    //bot.sendMessage(CHAT_ID, "motor turned off", "");
+    digitalWrite (ledPin, LOW);
+    delay(1000);
+}
+
+    
+    
